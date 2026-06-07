@@ -35,15 +35,18 @@ from sklearn.inspection import partial_dependence
 
 def h_statistic_tree(model, X, f1, f2):
     """Compute Friedman's H-statistic using partial dependence (tree-based models)."""
-    # Use feature names directly instead of indices
-    pd_joint = partial_dependence(model, X, [(f1, f2)], kind="average")["average"][0].ravel()
-    pd_f1    = partial_dependence(model, X, [f1], kind="average")["average"][0].ravel()
-    pd_f2    = partial_dependence(model, X, [f2], kind="average")["average"][0].ravel()
+    cols = list(X.columns)
+    i1, i2 = cols.index(f1), cols.index(f2)
+    # Pass numpy array to avoid XGBoost 2.x strict feature-name validation on DataFrames
+    X_np = X.values
+    pd_joint = partial_dependence(model, X_np, [(i1, i2)], kind="average")["average"][0].ravel()
+    pd_f1    = partial_dependence(model, X_np, [i1], kind="average")["average"][0].ravel()
+    pd_f2    = partial_dependence(model, X_np, [i2], kind="average")["average"][0].ravel()
 
     if hasattr(model, "predict_proba"):
-        f_x = model.predict_proba(X)[:, 1]
+        f_x = model.predict_proba(X_np)[:, 1]
     else:
-        f_x = model.predict(X)
+        f_x = model.predict(X_np)
 
     numerator = np.var(f_x - pd_f1 - pd_f2)
     denominator = np.var(f_x)
@@ -57,7 +60,7 @@ def compute_hstats_with_anchor(model, X, anchor="dem_sex_F", max_rows=2000):
         return None
 
     if len(X) > max_rows:
-        X = X.sample(n=max_rows, random_state=42)
+        X = X.sample(n=max_rows, random_state=42).reset_index(drop=True)
 
     results = []
     for f in X.columns:
@@ -68,6 +71,9 @@ def compute_hstats_with_anchor(model, X, anchor="dem_sex_F", max_rows=2000):
             results.append({"feature": f, "H": h})
         except Exception as e:
             print(f"⚠️ Skipping pair ({anchor}, {f}): {e}")
+    if not results:
+        print("⚠️ No H-stat pairs succeeded.")
+        return pd.DataFrame(columns=["feature", "H"])
     return pd.DataFrame(results).sort_values("H", ascending=False).reset_index(drop=True)
 
 
@@ -305,6 +311,78 @@ def main():
     val_scores = clf.predict_proba(X.loc[val_m])[:, 1]
 
     thr = 0.5
+
+    # --- Evaluate ---
+    def add_eval(mask=None, part_df=None, part_X=None):
+        if mask is not None:
+            Xp = X[mask]; yp = y[mask]
+        else:
+            Xp = part_X; yp = part_df[args.target].astype(int).values
+        scores = clf.predict_proba(Xp)[:, 1]
+        metrics = eval_split(yp, scores, threshold=thr)
+        return metrics, scores
+
+    results = {
+        "mode": args.mode,
+        "model": {"type": "XGBClassifier", "params": tuned_params, "seed": args.seed, "impute": bool(args.impute)},
+        "tuning": {"enabled": bool(args.tune), "metric": args.tune_metric},
+        "threshold": thr,
+    }
+
+    preds_frames = []
+    for name, mask in [("train", train_m), ("val", val_m), ("test", test_m)]:
+        m, scores = add_eval(mask=mask)
+        results[name] = m
+        out = dsplit.loc[mask, args.id_cols + [args.target]].copy()
+        out["split"] = name; out["prob"] = scores
+        preds_frames.append(out)
+
+    # External: full MIMIC-III
+    if args.mode == "mimic4_only" and args.dataset_col in df.columns:
+        df_m3 = df[df[args.dataset_col] == args.mimic3_value].copy()
+        df_m3 = df_m3[~df_m3[args.target].isna()]
+        if len(df_m3):
+            Xm3 = df_m3[feature_cols].copy()
+            if args.impute and imputer is not None:
+                Xm3 = pd.DataFrame(imputer.transform(Xm3), columns=feature_cols, index=Xm3.index)
+            m3_metrics, scores = add_eval(mask=None, part_df=df_m3, part_X=Xm3)
+            results["mimic3_full"] = m3_metrics
+            out = df_m3[args.id_cols + [args.target]].copy()
+            out["split"] = "mimic3_full"; out["prob"] = scores
+            preds_frames.append(out)
+
+    # Feature importance
+    fi = pd.Series(clf.feature_importances_, index=feature_cols).sort_values(ascending=False)
+    fi_df = fi.reset_index(); fi_df.columns = ["feature", "importance"]
+
+    # --- Save artifacts ---
+    out_prefix = Path(args.out_prefix)
+    out_prefix.parent.mkdir(parents=True, exist_ok=True)
+
+    joblib.dump({"model": clf, "imputer": imputer, "features": feature_cols}, f"{args.out_prefix}.joblib")
+
+    split_arr = np.where(train_m, "train", np.where(val_m, "val", "test"))
+    split_df = dsplit.loc[:, args.id_cols].copy()
+    split_df["split"] = split_arr
+    split_df.to_csv(f"{args.out_prefix}.splits.csv", index=False)
+
+    Path(f"{args.out_prefix}.features.txt").write_text("\n".join(feature_cols))
+
+    with open(f"{args.out_prefix}.metrics.json", "w") as f:
+        json.dump(results, f, indent=2, default=str)
+
+    pd.concat(preds_frames, ignore_index=True).to_csv(f"{args.out_prefix}.predictions.csv", index=False)
+
+    fi_df.to_csv(f"{args.out_prefix}.feature_importance.csv", index=False)
+
+    # Summary
+    test_m_res = results.get("test", {}); m3_res = results.get("mimic3_full", {})
+    summary = (
+        f"XGBoost | MIMIC-IV test  AUROC={test_m_res.get('auroc','N/A'):.3f}  AUPRC={test_m_res.get('auprc','N/A'):.3f}\n"
+        f"XGBoost | MIMIC-III ext  AUROC={m3_res.get('auroc','N/A'):.3f}  AUPRC={m3_res.get('auprc','N/A'):.3f}\n"
+    )
+    print(summary)
+    Path(f"{args.out_prefix}.summary.txt").write_text(summary)
 
     # --- H-stats ---
     try:
