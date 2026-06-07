@@ -75,14 +75,30 @@ ckd_survival/src/              → survival models (XGBoost CoxPH, DeepSurv)
 | Post-AKI CKD (≥90d) | 2,990 | 113 |
 | Post-AKI death | 4,265 | 4,104 |
 
-### Current keepautocar run (new, slightly different cohort)
-| | MIMIC-IV | MIMIC-III |
-|---|---|---|
-| Eligible cohort | 214,030 | 36,462 |
-| AKI | 40,392 | 9,109 |
-| No AKI | 173,638 | 27,353 |
+### Current keepautocar run — full verified pipeline flow
 
-**Note:** No AKI counts match perfectly but AKI counts differ from paper — original target.parquet was overwritten during re-runs. Paper numbers survive only in committed prediction CSVs (`artifacts/logreg_aki/logreg.predictions.csv`).
+All numbers verified directly from pipeline parquet files. Source files noted per step.
+
+| Step | MIMIC-IV | MIMIC-III |
+|---|---|---|
+| **1. All adult admissions (≥18y)** | 546,028 | 50,766 |
+| Excluded: age <18 + AKI as primary dx (seq_num=1) | −7,419 | −690 |
+| **2. Eligible admissions (target_admissions.parquet)** | 538,609 | 50,076 |
+| Not incident AKI eligible (label NA): CKD-only, repeat AKI, prior renal impairment | −92,280 | −5,700 |
+| **3. Labeled admissions (incident_aki_target.parquet)** | | |
+| &nbsp;&nbsp;Incident AKI (label = 1) | 40,392 | 9,109 |
+| &nbsp;&nbsp;No AKI (label = 0) | 405,937 | 35,267 |
+| Dedup: keep first AKI+ or last AKI− per patient; drop rest | −232,299 | −7,914 |
+| **4. Patient-level cohort (target.parquet)** | | |
+| &nbsp;&nbsp;Incident AKI | 40,392 | 9,109 |
+| &nbsp;&nbsp;No AKI | 173,638 | 27,353 |
+| **5. Post-AKI survival cohort (incident_ckd_survival.csv)** | N = 40,392 | N = 9,109 |
+| &nbsp;&nbsp;Incident CKD (≥90d post-discharge) | 9,477 | 274 |
+| &nbsp;&nbsp;Progression to ESRD/dialysis | 926 | 60 |
+| &nbsp;&nbsp;All-cause death (≥90d post-discharge) | 5,552 | 5,410 |
+| &nbsp;&nbsp;Censored | 24,437 | 3,365 |
+
+**Note:** AKI counts differ from paper (26,184 / 6,828) because original target.parquet was overwritten during re-runs. Paper numbers survive only in `artifacts/logreg_aki/logreg.predictions.csv`. The current numbers are fully reproducible from committed code.
 
 ---
 
@@ -271,6 +287,61 @@ CIs are narrow (±0.002–0.004 on test set), confirming stability. MIMIC-III CI
 | `ckd_survival/artifacts/` | Primary CKD + death survival model artifacts |
 | `aki_timing_sensitivity/artifacts/` | KDIGO-anchored survival model artifacts |
 | `ckd_definition_sensitivity/artifacts/` | Lab-CKD survival model artifacts |
+
+---
+
+## Intermediate Datasets — Full Pipeline
+
+All files listed below are produced by the current reproducible run. Data files (.parquet, .pkl, .csv with individual-level data) are not committed to git — only code and summary artifacts are committed.
+
+### Prediction Pipeline (root directory)
+
+| File | Produced by | What it contains |
+|---|---|---|
+| `data.pkl` | `compile_data.py` | Raw MIMIC-III + IV tables merged into one dict (admissions, patients, diagnoses, labs, etc.) |
+| `target_admissions.parquet` | `compute_target_admissions.py` | Admission-level after age ≥18 + primary AKI exclusions. 538,609 (MIMIC-IV) + 50,076 (MIMIC-III) |
+| `incident_aki_target.parquet` | `incident_aki_target.py` | Admission-level with incident_aki_label (1/0/NA), renal history flags, onset_aki_flag |
+| `target.parquet` | `dedup_patient_level.py` | Patient-level, one row per patient. 214,030 (MIMIC-IV) + 36,462 (MIMIC-III) |
+| `features/features_all.parquet` | `build_features.py` | All features merged at patient level (labs, vitals, demographics, comorbidities, etc.) |
+| `features/features_all_imputed.parquet` | `imputation.py` | Features after 3-tier median imputation + missingness flags |
+| `artifacts/*/` | `train_*.py` | Model artifacts, predictions CSV, metrics JSON, feature importance per model |
+| `cohort_counts.csv` | `compute_target_admissions.py` | Step-by-step counts through the admission-level pipeline |
+| `dedup_summary.csv` | `dedup_patient_level.py` | Patient counts after dedup (positive/negative/NA) |
+| `incident_aki_summary.csv` | `incident_aki_target.py` | Label counts (1/0/NA) per run |
+| `missingness_labs_preicu7d.csv` | `features/labs_preicu7d.py` | Lab missingness rates per feature |
+
+### Survival Pipeline (`ckd_survival/`)
+
+| File | Produced by | What it contains |
+|---|---|---|
+| `ckd_survival/target_admissions.parquet` | `ckd_survival/src/compute_target_admissions.py` | AKI patients eligible for post-AKI survival follow-up |
+| `ckd_survival/incident_ckd_survival.csv` | survival pipeline | One row per AKI patient: event_type (CKD/PostCKD/Death/Censor) + time_days. 40,392 (MIMIC-IV) + 9,109 (MIMIC-III) |
+| `ckd_survival/features_ckd.parquet` | `merge_ckd_features.py` | Features for survival models (joined to AKI cohort) |
+| `ckd_survival/artifacts/` | survival training scripts | CKD + death model artifacts (XGBoost CoxPH, DeepSurv) |
+
+### Sensitivity Analysis Datasets
+
+| File | What it contains |
+|---|---|
+| `aki_timing_sensitivity/kdigo_onset_times.parquet` | KDIGO creatinine onset time per AKI admission (hours post-admission) |
+| `aki_timing_sensitivity/incident_ckd_survival_kdigo.csv` | Survival dataset re-anchored to KDIGO onset instead of admission date |
+| `aki_timing_sensitivity/artifacts/` | KDIGO-anchored survival model artifacts |
+| `ckd_definition_sensitivity/lab_ckd_events.parquet` | Lab-based eGFR <60 CKD events (2 measurements ≥90d apart, race-free CKD-EPI) |
+| `ckd_definition_sensitivity/incident_ckd_survival_labckd.csv` | Survival dataset with lab-CKD as outcome instead of ICD codes |
+| `ckd_definition_sensitivity/artifacts/` | Lab-CKD survival model artifacts |
+| `features_noautocar/` | Feature set for no-autocar sensitivity run |
+| `artifacts_noautocar/` | Model artifacts for no-autocar sensitivity run |
+
+### Summary / Analysis Artifacts (committed to git)
+
+| File | What it contains |
+|---|---|
+| `uncertainty_intervals/artifacts/bootstrap_ci_summary.csv` | AUROC + AUPRC with 95% bootstrap CIs per model per split |
+| `calibration/artifacts/calibration_summary.csv` | Brier score, ECE, H-L test per model per split |
+| `age_sex_rcs/artifacts/rcs_metrics.json` | AUROC/AUPRC for RCS logistic model |
+| `age_sex_rcs/artifacts/rcs_coefficients.csv` | All RCS model coefficients sorted by magnitude |
+| `age_sex_rcs/artifacts/rcs_age_sex_curves.png` | Age-risk curves by sex with bootstrap CIs |
+| `calibration/artifacts/cal_*.png` | Calibration curve plots per model per split |
 
 ---
 
