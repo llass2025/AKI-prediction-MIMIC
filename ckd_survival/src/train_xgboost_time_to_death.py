@@ -170,7 +170,7 @@ def main():
                                               dataset_col=args.dataset_col, max_null_rate=args.max_null_rate)
 
     # Auto-exclude leakage
-    auto_exclude = {"time_days", "cmb_ckd"}
+    auto_exclude = {"time_days", "time_days_kdigo", "time_days_original", "hours_to_onset", "kdigo_found", "cmb_ckd"}
     exclude = set(args.exclude_cols) | auto_exclude
     feature_cols = [c for c in feature_cols if c not in exclude]
 
