@@ -1,0 +1,66 @@
+{
+  "input": "sensitivity_paper_version/autocar/features_all_imputed_noautocar.parquet",
+  "id_cols": [
+    "subject_id",
+    "hadm_id"
+  ],
+  "target": "incident_aki_label",
+  "dataset_col": "version",
+  "mimic3_value": "mimic3",
+  "mimic4_value": "mimic4",
+  "mode": "mimic4_only",
+  "test_size": 0.2,
+  "val_size": 0.1,
+  "seed": 42,
+  "feature_count": 782,
+  "features_path": "sensitivity_paper_version/autocar/artifacts/rf_noautocar.features.txt",
+  "threshold_objective": "specificity",
+  "threshold_target": 0.9,
+  "chosen_threshold": 0.5,
+  "model": {
+    "type": "RandomForestClassifier",
+    "params": {
+      "n_estimators": 200,
+      "max_depth": null,
+      "min_samples_leaf": 1,
+      "max_features": "sqrt",
+      "bootstrap": true
+    },
+    "class_weight": "balanced",
+    "seed": 42,
+    "impute": false
+  },
+  "excluded_columns": [
+    "admittime",
+    "aki_history_flag",
+    "ckd_admission_flag",
+    "ckd_only_flag",
+    "cmb_ckd",
+    "death_flag",
+    "gender",
+    "hadm_id",
+    "hospital_expire_flag",
+    "hx30d_crrt_any",
+    "hx30d_crrt_context_any",
+    "hx30d_rrt_any",
+    "hx31to180d_crrt_any",
+    "hx31to180d_crrt_context_any",
+    "hx31to180d_rrt_any",
+    "is_aki",
+    "is_autocar",
+    "is_ckd",
+    "kdigo-aki",
+    "onset_aki_flag",
+    "renal_impaired_at_adm",
+    "subject_id",
+    "target_meta__age",
+    "time_to_death_from_adm_hr",
+    "time_to_death_from_disch_hr",
+    "version"
+  ],
+  "class_weight_impl": "balanced",
+  "tuning": {
+    "enabled": false,
+    "metric": "auprc"
+  }
+}

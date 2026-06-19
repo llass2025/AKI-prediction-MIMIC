@@ -126,7 +126,7 @@ def train_one_epoch(model, criterion, optimizer, dataloader, device="cpu"):
     target, prediction = [], []
     for batch in dataloader:
         X, y = batch["X"].to(device), batch["y"].to(device)
-        y_pred = model(X).squeeze()
+        y_pred = model(X).squeeze(-1)
         loss = criterion(y_pred, y)
         target.extend(y.detach().cpu())
         prediction.extend(torch.sigmoid(y_pred).detach().cpu())
@@ -148,7 +148,7 @@ def evaluate(model, criterion, dataloader, device="cpu"):
     with torch.no_grad():
         for batch in dataloader:
             X, y = batch["X"].to(device), batch["y"].to(device)
-            y_pred = model(X).squeeze()
+            y_pred = model(X).squeeze(-1)
             loss = criterion(y_pred, y)
             target.extend(y.detach().cpu())
             prediction.extend(torch.sigmoid(y_pred).detach().cpu())
