@@ -71,7 +71,7 @@ def main():
     X_train_orig = scaler.fit_transform(X_train_orig)
     y_train = y_all[train_idx]
 
-    clf_orig = LogisticRegression(penalty='elasticnet', solver='saga', l1_ratio=0.5, C=1.0, max_iter=10000, random_state=args.seed)
+    clf_orig = LogisticRegression(penalty='elasticnet', solver='saga', l1_ratio=0.5, C=1.0, max_iter=10000, tol=1e-3, random_state=args.seed)
     clf_orig.fit(X_train_orig, y_train)
 
     try:
@@ -109,7 +109,7 @@ def main():
         sc_b = StandardScaler()
         X_b = sc_b.fit_transform(X_b)
 
-        clf_b = LogisticRegression(penalty='elasticnet', solver='saga', l1_ratio=0.5, C=1.0, max_iter=5000, random_state=int(rng.integers(0, 1e6)))
+        clf_b = LogisticRegression(penalty='elasticnet', solver='saga', l1_ratio=0.5, C=1.0, max_iter=5000, tol=1e-3, random_state=int(rng.integers(0, 1e6)))
         try:
             clf_b.fit(X_b, y_b)
             boot_coefs[b] = clf_b.coef_[0]
