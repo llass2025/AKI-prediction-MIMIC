@@ -152,6 +152,9 @@ def main():
     groups = dsplit["subject_id"].values
     train_m,val_m,test_m = groups_split_masks(len(dsplit),groups,0.2,0.1,42)
 
+    # drop columns that are entirely null in the training set before fitting imputer
+    feature_cols = [c for c in feature_cols if X.loc[train_m, c].notna().any()]
+
     # --- detect binary vs continuous ---
     binary_like = [c for c in feature_cols if set(np.unique(X[c].dropna().values)) <= {0,1}]
     cont_cols   = [c for c in feature_cols if c not in binary_like]

@@ -18,8 +18,8 @@ import pandas as pd
 
 DATA_PKL = "data.pkl"
 FEATURES_ALL = "/Users/lb353/coding/aki-analysis/features/features_all.parquet"
-CKD_SURV_ICD = "intermediate_data/incident_ckd_survival.csv"
-CKD_SURV_LAB = "intermediate_data/incident_ckd_survival_labckd.csv"
+CKD_SURV_ICD = "ckd_survival_no_cmb_ckd/incident_ckd_survival.csv"
+CKD_SURV_LAB = "ckd_survival_no_cmb_ckd/incident_ckd_survival_labckd.csv"
 OUTDIR = "."
 
 AKI_PREFIXES = ["584", "3995", "5498", "N17"]
@@ -65,30 +65,39 @@ def compute_counts(ver, adm_pat, paki_v, no_dx, target, feat, ckd_surv, ckd_surv
     tgt = target[target["version"] == ver]
     add("Eligible (target_admissions)", tgt)
 
-    na = tgt[tgt["incident_aki_label"].isna()]
+    feat_v = feat[feat["version"] == ver]
+    cmb_ckd_sids = set(feat_v.loc[feat_v["cmb_ckd"] == 1, "subject_id"])
+
     ckd_only = tgt[(tgt["is_aki"] == 0) & (tgt["is_ckd"] == 1)]
     noninc_aki = tgt[(tgt["incident_aki_label"].isna()) & (tgt["is_aki"] == 1)]
     renal_imp = tgt[(tgt["incident_aki_label"].isna()) & (tgt["is_aki"] == 0) & (tgt["is_ckd"] == 0)]
+    cmb_ckd_adm = tgt[tgt["subject_id"].isin(cmb_ckd_sids)]
+
+    after_ckd_only = tgt[~tgt["hadm_id"].isin(ckd_only["hadm_id"])]
+    after_noninc   = after_ckd_only[~after_ckd_only["hadm_id"].isin(noninc_aki["hadm_id"])]
+    after_renal    = after_noninc[~after_noninc["hadm_id"].isin(renal_imp["hadm_id"])]
+    after_cmb_ckd  = after_renal[~after_renal["subject_id"].isin(cmb_ckd_sids)]
 
     add("Excluded: CKD-only (no AKI)", ckd_only)
     add("Excluded: Non-incident AKI (repeat or AKI+CKD)", noninc_aki)
     add("Excluded: Prior renal impairment (no current AKI/CKD)", renal_imp)
-    add("Total excluded label NA", na)
+    add("Excluded: Concurrent AKI+CKD (cmb_ckd)", cmb_ckd_adm)
+    add("Remaining admissions", after_cmb_ckd)
 
-    labeled = tgt[tgt["incident_aki_label"].notna()]
-    inc_aki = tgt[tgt["incident_aki_label"] == 1]
-    neg = tgt[tgt["incident_aki_label"] == 0]
+    tgt_final = after_cmb_ckd
+    labeled = tgt_final[tgt_final["incident_aki_label"].notna()]
+    inc_aki = tgt_final[tgt_final["incident_aki_label"] == 1]
+    neg = tgt_final[tgt_final["incident_aki_label"] == 0]
     add("Labeled admissions", labeled)
     add("Labeled: Incident AKI (label=1)", inc_aki)
     add("Labeled: No AKI (label=0)", neg)
 
-    feat_v = feat[feat["version"] == ver]
     no_lab = labeled[~labeled["hadm_id"].isin(feat_v["hadm_id"])]
     add("Dedup to patient-level (keep first AKI+, last AKI−)", no_lab)
 
-    modeling = feat_v
-    modeling_aki = feat_v[feat_v["incident_aki_label"] == 1]
-    modeling_neg = feat_v[feat_v["incident_aki_label"] == 0]
+    modeling = feat_v[(feat_v["cmb_ckd"] != 1) & (feat_v["renal_impaired_at_adm"] != 1)]
+    modeling_aki = modeling[modeling["incident_aki_label"] == 1]
+    modeling_neg = modeling[modeling["incident_aki_label"] == 0]
     add("Modeling cohort", modeling)
     add("Modeling: Incident AKI", modeling_aki)
     add("Modeling: Controls", modeling_neg)
@@ -97,7 +106,7 @@ def compute_counts(ver, adm_pat, paki_v, no_dx, target, feat, ckd_surv, ckd_surv
     surv_lab = ckd_surv_lab[ckd_surv_lab["version"] == ver]
 
     # CKD survival exclusions not directly computable here — use known values
-    ckd_excl = {"mimic4": (3889, None), "mimic3": (99, None)}[ver]
+    ckd_excl = {"mimic4": (0, None), "mimic3": (0, None)}[ver]
     add("CKD survival excluded: CKD/ESRD <90d or no follow-up", n=ckd_excl[0], n_patients=ckd_excl[1])
     add("Post-AKI survival cohort", n=len(surv), n_patients=surv["subject_id"].nunique())
 
@@ -159,7 +168,7 @@ def main():
         for _, r in g.iterrows():
             r = r.copy()
             r["renal_impaired_at_adm"] = 1 if had_prior_ckd else 0
-            if r["is_aki"] == 1 and not onset_assigned and not had_prior_aki:
+            if r["is_aki"] == 1 and not onset_assigned and not had_prior_aki and r["is_ckd"] == 0 and not had_prior_ckd:
                 r["onset_aki_flag"] = 1
                 r["incident_aki_label"] = 1.0
                 onset_assigned = True
@@ -174,7 +183,7 @@ def main():
             rows.append(r)
     target = pd.DataFrame(rows)
 
-    feat = pd.read_parquet(FEATURES_ALL, columns=["version", "subject_id", "hadm_id", "incident_aki_label"])
+    feat = pd.read_parquet(FEATURES_ALL, columns=["version", "subject_id", "hadm_id", "incident_aki_label", "cmb_ckd", "renal_impaired_at_adm"])
     ckd_surv     = pd.read_csv(CKD_SURV_ICD)
     ckd_surv_lab = pd.read_csv(CKD_SURV_LAB)
 

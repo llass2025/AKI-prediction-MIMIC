@@ -1,0 +1,18 @@
+# DNN Results
+- Features: 404
+
+## TRAIN
+- AUROC: 0.926804 | AUPRC: 0.729187
+- Confusion matrix: [[94314, 1827], [7727, 6936]]
+
+## VAL
+- AUROC: 0.904962 | AUPRC: 0.651873
+- Confusion matrix: [[23440, 595], [2102, 1564]]
+
+## TEST
+- AUROC: 0.902890 | AUPRC: 0.650416
+- Confusion matrix: [[50200, 1305], [4454, 3401]]
+
+## MIMIC3_FULL
+- AUROC: 0.731439 | AUPRC: 0.388371
+- Confusion matrix: [[27130, 223], [6424, 404]]

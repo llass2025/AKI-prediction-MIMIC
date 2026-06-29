@@ -1,0 +1,71 @@
+# RandomForest Results (mimic4_only)
+- Features: 107
+- Train prevalence: 0.130403
+- Val prevalence:   0.133463
+- Test prevalence:  0.132041
+- Tuning: {'enabled': False, 'metric': 'auprc'}
+- Threshold (specificity target=0.9): 0.5000
+
+## TRAIN
+- AUROC: 0.998833 | AUPRC: 0.992847
+- Sensitivity: 0.977303 | Specificity: 0.993374 | Precision: 0.956741
+- Confusion matrix (rows=actual 0/1, cols=pred 0/1): [[120828, 806], [414, 17826]]
+```
+              precision    recall  f1-score   support
+
+           0     0.9966    0.9934    0.9950    121634
+           1     0.9567    0.9773    0.9669     18240
+
+    accuracy                         0.9913    139874
+   macro avg     0.9767    0.9853    0.9809    139874
+weighted avg     0.9914    0.9913    0.9913    139874
+
+```
+
+## VAL
+- AUROC: 0.884333 | AUPRC: 0.603480
+- Sensitivity: 0.460067 | Specificity: 0.962000 | Precision: 0.650928
+- Confusion matrix (rows=actual 0/1, cols=pred 0/1): [[16658, 658], [1440, 1227]]
+```
+              precision    recall  f1-score   support
+
+           0     0.9204    0.9620    0.9408     17316
+           1     0.6509    0.4601    0.5391      2667
+
+    accuracy                         0.8950     19983
+   macro avg     0.7857    0.7110    0.7399     19983
+weighted avg     0.8845    0.8950    0.8872     19983
+
+```
+
+## TEST
+- AUROC: 0.886315 | AUPRC: 0.611514
+- Sensitivity: 0.459352 | Specificity: 0.965521 | Precision: 0.669613
+- Confusion matrix (rows=actual 0/1, cols=pred 0/1): [[33492, 1196], [2853, 2424]]
+```
+              precision    recall  f1-score   support
+
+           0     0.9215    0.9655    0.9430     34688
+           1     0.6696    0.4594    0.5449      5277
+
+    accuracy                         0.8987     39965
+   macro avg     0.7956    0.7124    0.7440     39965
+weighted avg     0.8882    0.8987    0.8904     39965
+
+```
+
+## MIMIC-III (FULL EXTERNAL)
+- AUROC: 0.788328 | AUPRC: 0.551672
+- Sensitivity: 0.437024 | Specificity: 0.929953 | Precision: 0.608980
+- Confusion matrix (rows=actual 0/1, cols=pred 0/1): [[25437, 1916], [3844, 2984]]
+```
+              precision    recall  f1-score   support
+
+           0     0.8687    0.9300    0.8983     27353
+           1     0.6090    0.4370    0.5089      6828
+
+    accuracy                         0.8315     34181
+   macro avg     0.7388    0.6835    0.7036     34181
+weighted avg     0.8168    0.8315    0.8205     34181
+
+```
