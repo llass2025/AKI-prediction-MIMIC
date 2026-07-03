@@ -105,10 +105,11 @@ def compute_counts(ver, adm_pat, paki_v, no_dx, target, feat, ckd_surv, ckd_surv
     surv = ckd_surv[ckd_surv["version"] == ver]
     surv_lab = ckd_surv_lab[ckd_surv_lab["version"] == ver]
 
-    # CKD survival exclusions not directly computable here — use known values
-    ckd_excl = {"mimic4": (0, None), "mimic3": (0, None)}[ver]
-    add("CKD survival excluded: CKD/ESRD <90d or no follow-up", n=ckd_excl[0], n_patients=ckd_excl[1])
-    add("Post-AKI survival cohort", n=len(surv), n_patients=surv["subject_id"].nunique())
+    # CKD survival exclusions: CKD/PostCKD events within 90 days of AKI
+    n_surv = surv["subject_id"].nunique()
+    ckd_excl_n = len(modeling_aki) - n_surv
+    add("CKD survival excluded: CKD/ESRD <90d", n=ckd_excl_n)
+    add("Post-AKI survival cohort", n=len(surv), n_patients=n_surv)
 
     for evt, label in [("CKD", "Outcome: Incident CKD (ICD, >=90d)"),
                        ("PostCKD", "Outcome: PostCKD/ESRD (>=90d)"),
