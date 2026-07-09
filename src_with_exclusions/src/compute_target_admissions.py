@@ -4,6 +4,14 @@
 """
 Compute secondary AKI/CKD admission-level targets with pre-AKI flags and optional AutoCar exclusion.
 
+*** src_with_exclusions VERSION ***
+cmb_ckd (concurrent AKI+CKD on same admission) and renal_impaired_at_adm (prior CKD history)
+patients are excluded UPSTREAM — before feature engineering — in run_all.sh, immediately after
+this script writes target_admissions.parquet. The columns cmb_ckd and renal_impaired_at_adm
+are not available at this step (they come from the features parquet produced downstream);
+the exclusion is applied via a separate filter step in run_all.sh that reads those flags from
+the previously-built full features parquet (features/features_all.parquet).
+
 Pipeline:
   1) Adults only (>=18).
   2) Exclude PRIMARY AKI admissions (seq_num == 1 & is_aki==1).
@@ -18,9 +26,12 @@ Pipeline:
      by default; override with --keep_autocar to retain them.
   7) No patient-level deduplication (admission-level dataset only).
      For deduplication see dedup_target.py.
+  [UPSTREAM EXCLUSION — applied in run_all.sh after this script]
+  8) Patients with cmb_ckd==1 or renal_impaired_at_adm==1 are removed from
+     target_admissions.parquet before feature engineering proceeds.
 
 Outputs (to --outdir):
-  - target.parquet
+  - target_admissions.parquet  (raw; upstream exclusion applied by run_all.sh before use)
   - aki_ckd_death_target_first.csv  (convenience single-row-per-patient view)
   - pivot_overall.csv, pivot_mimic3.csv, pivot_mimic4.csv
   - cohort_counts.csv

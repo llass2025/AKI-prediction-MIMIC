@@ -4,8 +4,14 @@
 """
 Patient-level incident CKD after AKI.
 
+*** src_with_exclusions VERSION ***
+By the time this script runs, incident_ckd_admission.csv has already been filtered by
+run_all.sh to exclude patients with cmb_ckd==1 (concurrent AKI+CKD at index admission)
+or renal_impaired_at_adm==1 (prior CKD history). Those patients are never present in the
+survival dataset this script produces.
+
 Inputs:
-  - incident_ckd_admission.csv (admission-level with event flags)
+  - incident_ckd_admission.csv (admission-level with event flags; pre-filtered upstream)
 
 Logic:
   * For each subject, anchor at FIRST AKI admission.
