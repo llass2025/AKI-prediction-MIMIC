@@ -159,12 +159,8 @@ if [ "$SKIP_CKD_TARGETS" -eq 0 ]; then
   python3 -m src_with_exclusions.ckd_survival.src.compute_target_admissions \
     --data-pkl data.pkl \
     --keep_autocar \
+    --aki-target "$TARGET" \
     --outdir "$CKD_DIR"
-
-  log "Filtering CKD admission CSV to incident AKI cohort (upstream)"
-  python3 src_with_exclusions/filter_ckd_admission.py \
-    --adm "$CKD_DIR/incident_ckd_admission.csv" \
-    --target "$TARGET"
 
   log "Building patient-level CKD survival targets -> $CKD_DIR/"
   python3 -m src_with_exclusions.ckd_survival.src.incident_ckd_target \

@@ -150,7 +150,7 @@ def extract_autocar_flags(df_diagnosis: pd.DataFrame,
 # Core pipeline
 # -----------------------
 
-def compute_targets(data_dict: Dict, outdir: str, dedup_mode: str = "patient", keep_autocar: bool = False, verbose: bool = True):
+def compute_targets(data_dict: Dict, outdir: str, dedup_mode: str = "patient", keep_autocar: bool = False, verbose: bool = True, aki_target_parquet: str = None):
     os.makedirs(outdir, exist_ok=True)
     C = CounterLog()
 
@@ -181,6 +181,15 @@ def compute_targets(data_dict: Dict, outdir: str, dedup_mode: str = "patient", k
     df_adm_pat["death_flag"] = df_adm_pat["dod"].notna().astype(int)
     df_adm_pat["age"] = df_adm_pat[["version", "admittime", "dob", "anchor_age"]].apply(get_age_row_ts, axis=1)
     df_adults = df_adm_pat[df_adm_pat["age"] >= 18.0].drop(columns=["dob", "anchor_age"])
+
+    # ---- Restrict to incident AKI cohort from filtered target.parquet
+    # (excludes cmb_ckd and renal_impaired_at_adm patients already removed upstream)
+    if aki_target_parquet is not None:
+        aki_target = pd.read_parquet(aki_target_parquet, engine="fastparquet")
+        aki_sids = set(aki_target["subject_id"].unique())
+        before = df_adults["subject_id"].nunique()
+        df_adults = df_adults[df_adults["subject_id"].isin(aki_sids)]
+        log(f"Restricted to AKI target cohort: {before:,} -> {df_adults['subject_id'].nunique():,} patients", verbose)
 
     # ---- ICD flags
     df_kdx = extract_kidney_flags(df_diagnosis)
@@ -269,6 +278,7 @@ def main():
     ap.add_argument("--dedup_mode", type=str, default="patient", choices=["patient", "none"], help="Deduplication: 'patient' keeps first-AKI/last-nonAKI per patient; 'none' keeps all admissions.")
     ap.add_argument("--keep_autocar", action="store_true", help="Keep AutoCar admissions instead of excluding them.")
     ap.set_defaults(keep_autocar=True)
+    ap.add_argument("--aki-target", type=str, default=None, help="Path to filtered AKI target.parquet; restricts cohort to incident AKI patients with cmb_ckd/renal_impaired already excluded.")
     ap.add_argument("--quiet", action="store_true", help="Silence console logs.")
     args = ap.parse_args()
 
@@ -280,7 +290,7 @@ def main():
     with open(args.data_pkl, "rb") as f:
         data_dict = pd.read_pickle(f)
 
-    compute_targets(data_dict=data_dict, outdir=args.outdir, dedup_mode=args.dedup_mode, keep_autocar=args.keep_autocar, verbose=not args.quiet)
+    compute_targets(data_dict=data_dict, outdir=args.outdir, dedup_mode=args.dedup_mode, keep_autocar=args.keep_autocar, verbose=not args.quiet, aki_target_parquet=args.aki_target)
 
 if __name__ == "__main__":
     main()
