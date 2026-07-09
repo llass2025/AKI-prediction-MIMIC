@@ -161,10 +161,10 @@ if [ "$SKIP_CKD_TARGETS" -eq 0 ]; then
     --keep_autocar \
     --outdir "$CKD_DIR"
 
-  log "Excluding cmb_ckd and renal_impaired patients from CKD admission CSV (upstream)"
+  log "Filtering CKD admission CSV to incident AKI cohort (upstream)"
   python3 src_with_exclusions/filter_ckd_admission.py \
     --adm "$CKD_DIR/incident_ckd_admission.csv" \
-    --features features/features_all.parquet
+    --target "$TARGET"
 
   log "Building patient-level CKD survival targets -> $CKD_DIR/"
   python3 -m src_with_exclusions.ckd_survival.src.incident_ckd_target \

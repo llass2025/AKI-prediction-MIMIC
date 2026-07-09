@@ -2,20 +2,20 @@
 """
 Upstream exclusion step for the CKD survival pipeline.
 
-Removes patients with cmb_ckd==1 (concurrent AKI+CKD at index admission) or
-renal_impaired_at_adm==1 (prior CKD history) from incident_ckd_admission.csv
-BEFORE incident_ckd_target.py collapses it to patient-level survival data.
-These flags are read from the reference features parquet (built once from the
-full cohort) because they are not available at target-computation time.
+Filters incident_ckd_admission.csv to only retain patients who are in the
+already-filtered AKI target cohort (target.parquet). Since cmb_ckd and
+renal_impaired_at_adm patients were removed from target.parquet by
+filter_aki_target.py, this ensures the CKD survival pipeline starts from
+exactly the same clean incident AKI cohort — consistent with how the
+flowchart counts are derived.
 
 Inputs:
-  --adm      incident_ckd_admission.csv produced by ckd_survival compute_target_admissions.py
-  --features features/features_all.parquet (reference; must contain cmb_ckd and
-             renal_impaired_at_adm columns)
-  --out      output path for the filtered CSV (default: overwrites --adm)
+  --adm     incident_ckd_admission.csv produced by ckd_survival compute_target_admissions.py
+  --target  target.parquet (filtered AKI cohort from filter_aki_target.py)
+  --out     output path for the filtered CSV (default: overwrites --adm)
 
 Outputs:
-  Filtered CSV at --out (patients with cmb_ckd==1 or renal_impaired_at_adm==1 removed)
+  Filtered CSV at --out containing only admissions for patients in the AKI cohort
 """
 
 import argparse
@@ -23,31 +23,25 @@ import pandas as pd
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Exclude cmb_ckd/renal_impaired patients from CKD admission CSV")
-    ap.add_argument("--adm",      required=True, help="Path to incident_ckd_admission.csv")
-    ap.add_argument("--features", required=True, help="Path to features_all.parquet (reference cohort)")
-    ap.add_argument("--out",      default=None,  help="Output path (default: overwrite --adm)")
+    ap = argparse.ArgumentParser(description="Filter CKD admission CSV to the incident AKI cohort")
+    ap.add_argument("--adm",    required=True, help="Path to incident_ckd_admission.csv")
+    ap.add_argument("--target", required=True, help="Path to filtered target.parquet (AKI cohort)")
+    ap.add_argument("--out",    default=None,  help="Output path (default: overwrite --adm)")
     args = ap.parse_args()
 
     out_path = args.out or args.adm
 
     adm = pd.read_csv(args.adm)
-    print(f"CKD admission before exclusion: {adm['subject_id'].nunique():,} patients, {len(adm):,} rows")
+    print(f"CKD admission before filter: {adm['subject_id'].nunique():,} patients, {len(adm):,} rows")
 
-    feat = pd.read_parquet(
-        args.features,
-        columns=["subject_id", "cmb_ckd", "renal_impaired_at_adm"],
-        engine="fastparquet",
-    )
-    excl_cmb_ckd        = set(feat.loc[feat["cmb_ckd"] == 1,               "subject_id"])
-    excl_renal_impaired = set(feat.loc[feat["renal_impaired_at_adm"] == 1,  "subject_id"])
-    excl_sids = excl_cmb_ckd | excl_renal_impaired
-    print(f"  cmb_ckd==1:              {len(excl_cmb_ckd):,} patients")
-    print(f"  renal_impaired_at_adm==1:{len(excl_renal_impaired):,} patients")
-    print(f"  union (excluded):        {len(excl_sids):,} patients")
+    target = pd.read_parquet(args.target, engine="fastparquet")
+    aki_sids = set(target["subject_id"].unique())
+    print(f"Incident AKI cohort (filtered target): {len(aki_sids):,} patients")
 
-    filtered = adm[~adm["subject_id"].isin(excl_sids)]
-    print(f"CKD admission after exclusion:  {filtered['subject_id'].nunique():,} patients, {len(filtered):,} rows")
+    filtered = adm[adm["subject_id"].isin(aki_sids)]
+    n_removed = adm["subject_id"].nunique() - filtered["subject_id"].nunique()
+    print(f"Removed {n_removed:,} patients not in AKI cohort (cmb_ckd / renal_impaired / non-AKI)")
+    print(f"CKD admission after filter:  {filtered['subject_id'].nunique():,} patients, {len(filtered):,} rows")
 
     filtered.to_csv(out_path, index=False)
     print(f"Saved -> {out_path}")
