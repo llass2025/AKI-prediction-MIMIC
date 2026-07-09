@@ -32,7 +32,7 @@ import os
 import pandas as pd
 
 
-def add_history_flags(df: pd.DataFrame) -> pd.DataFrame:
+def add_history_flags(df: pd.DataFrame, exclude_concurrent_ckd: bool = False) -> pd.DataFrame:
     df = df.copy()
     df["admittime"] = pd.to_datetime(df["admittime"], errors="coerce")
     df = df.sort_values(["subject_id", "admittime"]).reset_index(drop=True)
@@ -57,7 +57,9 @@ def add_history_flags(df: pd.DataFrame) -> pd.DataFrame:
             r["aki_history_flag"] = 1 if had_prior_aki else 0
 
             # onset AKI = first-ever AKI admission
-            if r["is_aki"] == 1 and not onset_assigned and not had_prior_aki:
+            # with --exclude-concurrent-ckd: also require no concurrent CKD on same admission
+            no_concurrent_ckd = (r["is_ckd"] == 0 and not had_prior_ckd) if exclude_concurrent_ckd else True
+            if r["is_aki"] == 1 and not onset_assigned and not had_prior_aki and no_concurrent_ckd:
                 r["onset_aki_flag"] = 1
                 onset_assigned = True
             else:
@@ -125,6 +127,8 @@ def main():
     ap = argparse.ArgumentParser(description="Build incident AKI target from target_admissions.parquet")
     ap.add_argument("--input", type=str, default="target_admissions.parquet", help="Path to target.parquet")
     ap.add_argument("--outdir", type=str, default=".", help="Directory to save outputs")
+    ap.add_argument("--exclude-concurrent-ckd", action="store_true",
+                    help="Exclude admissions where AKI and CKD are coded concurrently (no prior CKD history)")
     args = ap.parse_args()
 
     os.makedirs(args.outdir, exist_ok=True)
@@ -133,7 +137,7 @@ def main():
     df = pd.read_parquet(args.input)
 
     print("Adding renal history flags ...")
-    df_hist = add_history_flags(df)
+    df_hist = add_history_flags(df, exclude_concurrent_ckd=args.exclude_concurrent_ckd)
 
     print("Labeling incident AKI ...")
     df_labeled = label_incident_aki(df_hist)

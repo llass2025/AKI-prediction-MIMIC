@@ -127,7 +127,7 @@ def main():
         "version", "subject_id", "event_hadm_id", "index_admit",
         "ckd_event_hadm_id", "postckd_event_hadm_id", "death_event_hadm_id",
         "time_to_ckd", "time_to_postckd", "time_to_death", "cmb_ckd", "gender", 
-        "is_ckd", "is_postckd", "is_death", "is_censored", "time_days", "event_code", "censor_time"
+        "is_ckd", "is_postckd", "is_death", "is_censored", "time_days", "event_code", "event_type", "censor_time"
     ])
     args = ap.parse_args()
 
@@ -142,7 +142,10 @@ def main():
     if 'is_ckd' in df:
         df = df[df['is_ckd'] != 1]
 
-    df['is_death'] = (df['event_code'].astype(int) == 2).astype(int)
+    if 'event_code' in df.columns:
+        df['is_death'] = (df['event_code'].astype(int) == 2).astype(int)
+    else:
+        df['is_death'] = (df['event_type'] == 'Death').astype(int)
 
     exclude = args.exclude_cols + [col for col in df.columns if "_missing" in col]
     feature_cols = [c for c in df.columns if c not in exclude and np.issubdtype(df[c].dtype,np.number)]
@@ -157,12 +160,15 @@ def main():
     groups = dsplit["subject_id"].values
     train_m,val_m,test_m = groups_split_masks(len(dsplit),groups,0.2,0.1,42)
 
-    # --- detect binary vs continuous ---
-    binary_like = [c for c in feature_cols if set(np.unique(X[c].dropna().values)) <= {0,1}]
-    cont_cols   = [c for c in feature_cols if c not in binary_like]
+    # drop columns that are entirely null in the training set before fitting imputer
+    feature_cols = [c for c in feature_cols if X.loc[train_m, c].notna().any()]
 
     # --- imputer ---
     imp = SimpleImputer(strategy="median").fit(X.loc[train_m, feature_cols])
+
+    # --- detect binary vs continuous ---
+    binary_like = [c for c in feature_cols if set(np.unique(X[c].dropna().values)) <= {0,1}]
+    cont_cols   = [c for c in feature_cols if c not in binary_like]
 
     # --- scaler (fit on imputed continuous cols only) ---
     sca = None

@@ -1,0 +1,23 @@
+# Data files
+*.parquet
+*.csv
+!flowchart_numbers_*.csv
+
+# Model weights
+*.pt
+*.joblib
+*.pkl
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.DS_Store
+
+# Large data
+data.pkl
+*.zip
+*.pkl
+
+# Jupyter
+.ipynb_checkpoints/

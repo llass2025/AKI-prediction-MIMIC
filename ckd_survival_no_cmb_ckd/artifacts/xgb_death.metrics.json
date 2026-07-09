@@ -1,0 +1,38 @@
+{
+  "train": {
+    "cindex": 0.6468115922955804,
+    "n": 17139,
+    "horizon_days": 365.0,
+    "auroc_at_horizon": 0.7537197131555807,
+    "auprc_at_horizon": 0.6059809586508963,
+    "horizon_eval_n": 6807,
+    "horizon_pos_rate": 0.35507565741148817
+  },
+  "val": {
+    "cindex": 0.5871609872995294,
+    "n": 2449,
+    "horizon_days": 365.0,
+    "auroc_at_horizon": 0.7502774694783574,
+    "auprc_at_horizon": 0.6259570764082281,
+    "horizon_eval_n": 993,
+    "horizon_pos_rate": 0.3595166163141994
+  },
+  "test": {
+    "cindex": 0.5963739639937414,
+    "n": 4898,
+    "horizon_days": 365.0,
+    "auroc_at_horizon": 0.7479236004119816,
+    "auprc_at_horizon": 0.5943580386896383,
+    "horizon_eval_n": 2019,
+    "horizon_pos_rate": 0.3605745418524022
+  },
+  "mimic3_full": {
+    "cindex": 0.5084251415714269,
+    "n": 6601,
+    "horizon_days": 365.0,
+    "auroc_at_horizon": 0.664760418448207,
+    "auprc_at_horizon": 0.9559357948752203,
+    "horizon_eval_n": 4186,
+    "horizon_pos_rate": 0.9311992355470616
+  }
+}

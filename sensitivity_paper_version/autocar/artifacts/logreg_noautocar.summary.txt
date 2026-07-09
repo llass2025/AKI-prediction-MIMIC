@@ -1,0 +1,68 @@
+# Logistic Regression (liblinear) — tuned=False metric=auprc
+- Features: 115
+- Tuned params: {'C': 1.0, 'penalty': 'l1'}
+- Threshold: 0.5000
+
+## TRAIN
+- AUROC: 0.874922 | AUPRC: 0.515966 | Prev: 0.112054
+- Sensitivity: 0.754027 | Specificity: 0.827332 | Precision: 0.355288
+- Confusion (rows=actual 0/1, cols=pred 0/1): [[56985, 11893], [2138, 6554]]
+```
+              precision    recall  f1-score   support
+
+           0     0.9638    0.8273    0.8904     68878
+           1     0.3553    0.7540    0.4830      8692
+
+    accuracy                         0.8191     77570
+   macro avg     0.6596    0.7907    0.6867     77570
+weighted avg     0.8956    0.8191    0.8447     77570
+
+```
+
+## VAL
+- AUROC: 0.873562 | AUPRC: 0.534432 | Prev: 0.112051
+- Sensitivity: 0.747354 | Specificity: 0.827468 | Precision: 0.353428
+- Confusion (rows=actual 0/1, cols=pred 0/1): [[14249, 2971], [549, 1624]]
+```
+              precision    recall  f1-score   support
+
+           0     0.9629    0.8275    0.8901     17220
+           1     0.3534    0.7474    0.4799      2173
+
+    accuracy                         0.8185     19393
+   macro avg     0.6582    0.7874    0.6850     19393
+weighted avg     0.8946    0.8185    0.8441     19393
+
+```
+
+## TEST
+- AUROC: 0.872104 | AUPRC: 0.517608 | Prev: 0.112066
+- Sensitivity: 0.748121 | Specificity: 0.830239 | Precision: 0.357407
+- Confusion (rows=actual 0/1, cols=pred 0/1): [[30635, 6264], [1173, 3484]]
+```
+              precision    recall  f1-score   support
+
+           0     0.9631    0.8302    0.8918     36899
+           1     0.3574    0.7481    0.4837      4657
+
+    accuracy                         0.8210     41556
+   macro avg     0.6603    0.7892    0.6877     41556
+weighted avg     0.8952    0.8210    0.8460     41556
+
+```
+
+## MIMIC-III (EXTERNAL)
+- AUROC: 0.751778 | AUPRC: 0.444848 | Prev: 0.192649
+- Sensitivity: 0.501067 | Specificity: 0.844436 | Precision: 0.434576
+- Confusion (rows=actual 0/1, cols=pred 0/1): [[11611, 2139], [1637, 1644]]
+```
+              precision    recall  f1-score   support
+
+           0     0.8764    0.8444    0.8601     13750
+           1     0.4346    0.5011    0.4655      3281
+
+    accuracy                         0.7783     17031
+   macro avg     0.6555    0.6728    0.6628     17031
+weighted avg     0.7913    0.7783    0.7841     17031
+
+```

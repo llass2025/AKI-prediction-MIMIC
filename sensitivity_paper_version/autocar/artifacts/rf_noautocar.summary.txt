@@ -1,0 +1,71 @@
+# RandomForest Results (mimic4_only)
+- Features: 782
+- Train prevalence: 0.112435
+- Val prevalence:   0.113052
+- Test prevalence:  0.110237
+- Tuning: {'enabled': False, 'metric': 'auprc'}
+- Threshold (specificity target=0.9): 0.5000
+
+## TRAIN
+- AUROC: 0.999906 | AUPRC: 0.999365
+- Sensitivity: 0.994038 | Specificity: 0.998280 | Precision: 0.986527
+- Confusion matrix (rows=actual 0/1, cols=pred 0/1): [[85913, 148], [65, 10837]]
+```
+              precision    recall  f1-score   support
+
+           0     0.9992    0.9983    0.9988     86061
+           1     0.9865    0.9940    0.9903     10902
+
+    accuracy                         0.9978     96963
+   macro avg     0.9929    0.9962    0.9945     96963
+weighted avg     0.9978    0.9978    0.9978     96963
+
+```
+
+## VAL
+- AUROC: 0.901457 | AUPRC: 0.619910
+- Sensitivity: 0.339080 | Specificity: 0.983721 | Precision: 0.726402
+- Confusion matrix (rows=actual 0/1, cols=pred 0/1): [[12086, 200], [1035, 531]]
+```
+              precision    recall  f1-score   support
+
+           0     0.9211    0.9837    0.9514     12286
+           1     0.7264    0.3391    0.4623      1566
+
+    accuracy                         0.9108     13852
+   macro avg     0.8238    0.6614    0.7069     13852
+weighted avg     0.8991    0.9108    0.8961     13852
+
+```
+
+## TEST
+- AUROC: 0.898386 | AUPRC: 0.608679
+- Sensitivity: 0.344794 | Specificity: 0.984544 | Precision: 0.734310
+- Confusion matrix (rows=actual 0/1, cols=pred 0/1): [[24269, 381], [2001, 1053]]
+```
+              precision    recall  f1-score   support
+
+           0     0.9238    0.9845    0.9532     24650
+           1     0.7343    0.3448    0.4693      3054
+
+    accuracy                         0.9140     27704
+   macro avg     0.8291    0.6647    0.7112     27704
+weighted avg     0.9029    0.9140    0.8999     27704
+
+```
+
+## MIMIC-III (FULL EXTERNAL)
+- AUROC: 0.721609 | AUPRC: 0.427358
+- Sensitivity: 0.037489 | Specificity: 0.998255 | Precision: 0.836735
+- Confusion matrix (rows=actual 0/1, cols=pred 0/1): [[13726, 24], [3158, 123]]
+```
+              precision    recall  f1-score   support
+
+           0     0.8130    0.9983    0.8961     13750
+           1     0.8367    0.0375    0.0718      3281
+
+    accuracy                         0.8132     17031
+   macro avg     0.8248    0.5179    0.4839     17031
+weighted avg     0.8175    0.8132    0.7373     17031
+
+```

@@ -1,0 +1,46 @@
+# Elastic Net Logistic Regression — AKI Prediction
+- Alpha (l1_ratio): 1.0000  Lambda: 6.95193  C: 0.14384
+- CV: 10-fold, metric: AUC
+- Total features (incl. interactions): 434
+- Selected features (nonzero): 415
+
+## TRAIN+VAL
+  AUROC=0.8796  AUPRC=0.5866  N=159,857
+
+## TEST
+  AUROC=0.8758  AUPRC=0.5740  N=39,965
+
+## MIMIC-III (external)
+  AUROC=0.7063  AUPRC=0.3853  N=34,181
+
+## TOP 30 SELECTED FEATURES (by |coef| in plain logistic)
+  labs7d_bun_std                                           -1.6589
+  labs7d_creatinine_std                                    +1.2998
+  labs7d_bun_mean                                          +1.2777
+  labs7d_creatinine_max                                    -0.9108
+  labs7d_bun_std_M                                         -0.8673
+  labs7d_bun_max                                           +0.8144
+  labs7d_creatinine_count                                  +0.7546
+  dem_sex_F                                                -0.7102
+  labs7d_bun_min_M                                         -0.6776
+  labs7d_bun_mean_M                                        +0.6522
+  labs7d_potassium_std                                     +0.6282
+  labs7d_creatinine_mean                                   -0.6023
+  vital48h_cvp_max_M                                       -0.5484
+  labs7d_bicarbonate_max_M                                 -0.5425
+  dem_sex_M                                                -0.5306
+  labs7d_hgb_max_M                                         -0.5294
+  ins_PRIVATE                                              -0.5096
+  vital48h_heart_rate_count                                +0.5094
+  labs7d_hgb_max                                           +0.4738
+  labs7d_creatinine_std_M                                  +0.4446
+  labs7d_ph_max_M                                          -0.4420
+  labs7d_hgb_std                                           -0.4338
+  labs7d_sodium_std                                        +0.4225
+  vital48h_spo2_count_M                                    +0.4176
+  labs7d_bun_max_M                                         +0.4158
+  vital48h_sbp_max                                         -0.4082
+  labs7d_albumin_std_M                                     -0.3930
+  vital48h_tidal_volume_max                                -0.3904
+  dem_race_ASIAN                                           -0.3892
+  labs7d_hgb_last_M                                        +0.3882
