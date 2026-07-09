@@ -1,0 +1,17 @@
+# Data files
+*.parquet
+*.csv
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.DS_Store
+
+# Large data
+data.pkl
+*.zip
+*.pkl
+
+# Jupyter
+.ipynb_checkpoints/
