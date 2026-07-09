@@ -1,6 +1,7 @@
 # Data files
 *.parquet
-flowchart_numbers_*.csv
+*.csv
+!flowchart_numbers_*.csv
 
 # Python
 __pycache__/
