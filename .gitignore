@@ -3,6 +3,11 @@
 *.csv
 !flowchart_numbers_*.csv
 
+# Model weights
+*.pt
+*.joblib
+*.pkl
+
 # Python
 __pycache__/
 *.py[cod]
