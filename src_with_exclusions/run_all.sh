@@ -257,7 +257,19 @@ else
   log "Skipping CKD model training"
 fi
 
-log "Pipeline complete."
+# ══════════════════════════════════════════════════════════════════════════════
+# PART 3 — LAB-BASED CKD SENSITIVITY
+# ══════════════════════════════════════════════════════════════════════════════
+
+log "Running lab-based CKD definition (sensitivity analysis)"
+python3 ckd_definition_sensitivity/lab_ckd_definition.py \
+  --data-pkl data.pkl \
+  --survival-csv "$CKD_DIR/incident_ckd_survival.csv" \
+  --target "$TARGET" \
+  --outdir "$CKD_DIR"
+
+log "Pipeline complete. Outputs:"
 log "  AKI features:    $FEAT_DIR/"
 log "  AKI artifacts:   $ART_DIR/"
 log "  CKD survival:    $CKD_DIR/"
+log "  Lab CKD:         $CKD_DIR/incident_ckd_survival_labckd.csv"
