@@ -65,24 +65,10 @@ python3 -m src_with_exclusions.src.compute_target_admissions \
   --outdir "$OUTDIR"
 
 log "Excluding cmb_ckd and renal_impaired patients from AKI target (upstream)"
-python3 - << 'EOF'
-import pandas as pd, os
-
-outdir = "src_with_exclusions"
-target = pd.read_parquet(f"{outdir}/target_admissions.parquet")
-print(f"AKI target before exclusion: {target['subject_id'].nunique():,} patients, {len(target):,} rows")
-
-# Identify cmb_ckd and renal_impaired subjects from the full features
-feat = pd.read_parquet("features/features_all.parquet",
-    columns=["subject_id","cmb_ckd","renal_impaired_at_adm"], engine="fastparquet")
-excl_sids = set(feat.loc[(feat["cmb_ckd"]==1) | (feat["renal_impaired_at_adm"]==1), "subject_id"])
-print(f"Excluding {len(excl_sids):,} subjects with cmb_ckd or renal_impaired")
-
-target_filtered = target[~target["subject_id"].isin(excl_sids)]
-print(f"AKI target after exclusion:  {target_filtered['subject_id'].nunique():,} patients, {len(target_filtered):,} rows")
-target_filtered.to_parquet(f"{outdir}/target.parquet", index=False)
-print(f"Saved {outdir}/target.parquet")
-EOF
+python3 src_with_exclusions/filter_aki_target.py \
+  --target "$OUTDIR/target_admissions.parquet" \
+  --features features/features_all.parquet \
+  --out "$TARGET"
 
 # ── Step 1b: AKI feature engineering ─────────────────────────────────────────
 if [ "$SKIP_AKI_FEATURES" -eq 0 ]; then
@@ -176,22 +162,9 @@ if [ "$SKIP_CKD_TARGETS" -eq 0 ]; then
     --outdir "$CKD_DIR"
 
   log "Excluding cmb_ckd and renal_impaired patients from CKD admission CSV (upstream)"
-  python3 - << 'EOF'
-import pandas as pd
-
-ckd_dir = "src_with_exclusions/ckd_survival"
-feat = pd.read_parquet("features/features_all.parquet",
-    columns=["subject_id","cmb_ckd","renal_impaired_at_adm"], engine="fastparquet")
-excl_sids = set(feat.loc[(feat["cmb_ckd"]==1) | (feat["renal_impaired_at_adm"]==1), "subject_id"])
-print(f"Excluding {len(excl_sids):,} subjects with cmb_ckd or renal_impaired")
-
-adm = pd.read_csv(f"{ckd_dir}/incident_ckd_admission.csv")
-print(f"CKD admission before: {adm['subject_id'].nunique():,} patients, {len(adm):,} rows")
-adm_filtered = adm[~adm["subject_id"].isin(excl_sids)]
-print(f"CKD admission after:  {adm_filtered['subject_id'].nunique():,} patients, {len(adm_filtered):,} rows")
-adm_filtered.to_csv(f"{ckd_dir}/incident_ckd_admission.csv", index=False)
-print("Saved filtered incident_ckd_admission.csv")
-EOF
+  python3 src_with_exclusions/filter_ckd_admission.py \
+    --adm "$CKD_DIR/incident_ckd_admission.csv" \
+    --features features/features_all.parquet
 
   log "Building patient-level CKD survival targets -> $CKD_DIR/"
   python3 -m src_with_exclusions.ckd_survival.src.incident_ckd_target \
