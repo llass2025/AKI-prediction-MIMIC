@@ -59,7 +59,7 @@ mkdir -p "$FEAT_DIR" "$CKD_DIR"
 
 # ── Step 1a: Build AKI targets ────────────────────────────────────────────────
 log "Building AKI target admissions"
-python3 -m src.compute_target_admissions \
+python3 -m src_with_exclusions.src.compute_target_admissions \
   --data-pkl data.pkl \
   --keep_autocar \
   --outdir "$OUTDIR"
@@ -170,7 +170,7 @@ fi
 # ── Step 2a: Build CKD targets ────────────────────────────────────────────────
 if [ "$SKIP_CKD_TARGETS" -eq 0 ]; then
   log "Building CKD target admissions -> $CKD_DIR/"
-  python3 -m ckd_survival.src.compute_target_admissions \
+  python3 -m src_with_exclusions.ckd_survival.src.compute_target_admissions \
     --data-pkl data.pkl \
     --keep_autocar \
     --outdir "$CKD_DIR"
@@ -194,7 +194,7 @@ print("Saved filtered incident_ckd_admission.csv")
 EOF
 
   log "Building patient-level CKD survival targets -> $CKD_DIR/"
-  python3 -m ckd_survival.src.incident_ckd_target \
+  python3 -m src_with_exclusions.ckd_survival.src.incident_ckd_target \
     --adm "$CKD_DIR/incident_ckd_admission.csv" \
     --outdir "$CKD_DIR"
 else
