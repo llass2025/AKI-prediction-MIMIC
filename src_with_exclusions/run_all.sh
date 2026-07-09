@@ -127,35 +127,35 @@ if [ "$SKIP_AKI_TRAINING" -eq 0 ]; then
            "$ART_DIR/dnn_aki" "$ART_DIR/selfatten_aki" "$ART_DIR/dcn_aki"
 
   log "Training XGBoost"
-  python3 -m src.train_xgboost \
+  python3 -m src_with_exclusions.src.train_xgboost \
     --input "$FEAT_DIR/features_all.parquet" \
     --out-prefix "$ART_DIR/xgb_aki/xgb"
 
   log "Training Random Forest"
-  python3 -m src.train_rf \
+  python3 -m src_with_exclusions.src.train_rf \
     --input "$FEAT_DIR/features_all.parquet" \
     --impute \
     --out-prefix "$ART_DIR/rf_aki/rf"
 
   log "Training Logistic Regression"
-  python3 -m src.train_logreg \
+  python3 -m src_with_exclusions.src.train_logreg \
     --input "$FEAT_DIR/features_all_imputed.parquet" \
     --out-prefix "$ART_DIR/logreg_aki/logreg"
 
   log "Training DNN (device=$DEVICE)"
-  python3 -m src.train_dnn \
+  python3 -m src_with_exclusions.src.train_dnn \
     --input "$FEAT_DIR/features_all_imputed.parquet" \
     --device "$DEVICE" \
     --out-prefix "$ART_DIR/dnn_aki/dnn"
 
   log "Training Self-Attention (device=$DEVICE)"
-  python3 -m src.train_selfattn \
+  python3 -m src_with_exclusions.src.train_selfattn \
     --input "$FEAT_DIR/features_all_imputed.parquet" \
     --device "$DEVICE" \
     --out-prefix "$ART_DIR/selfatten_aki/selfatten"
 
   log "Training DCN (device=$DEVICE)"
-  python3 -m src.train_dcn \
+  python3 -m src_with_exclusions.src.train_dcn \
     --input "$FEAT_DIR/features_all_imputed.parquet" \
     --device "$DEVICE" \
     --out-prefix "$ART_DIR/dcn_aki/dcn"
