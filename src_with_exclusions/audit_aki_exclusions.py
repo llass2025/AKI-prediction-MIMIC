@@ -158,8 +158,33 @@ def main():
     final_cohort = after_cmb[~after_cmb["subject_id"].isin(renal_imp_sids)]
     print(f"Step {step} (renal_impaired):    removed {len(records[-1]):,} admissions, {records[-1]['subject_id'].nunique():,} subjects")
 
+    # ── Step 6: deduplication — first AKI, last non-AKI per subject ─────────────
+    step += 1
+    final_cohort = final_cohort.copy()
+    final_cohort["admittime"] = pd.to_datetime(final_cohort["admittime"], errors="coerce")
+
+    def pick_kept(g):
+        g = g.drop(columns="subject_id")
+        aki = g[g["is_aki"] == 1].sort_values("admittime").iloc[:1]
+        non_aki = g[g["is_aki"] == 0].sort_values("admittime").iloc[-1:]
+        return pd.concat([aki, non_aki])
+
+    kept = (
+        final_cohort.groupby("subject_id", group_keys=False)
+        .apply(pick_kept, include_groups=False)
+        .reset_index()
+    )
+    removed_dedup = final_cohort[~final_cohort.index.isin(kept.index)]
+    records.append(record_removed(step, "dedup: not first AKI or last non-AKI per subject", removed_dedup))
+    print(f"Step {step} (dedup):             removed {len(records[-1]):,} admissions, {records[-1]['subject_id'].nunique():,} subjects")
+
+    modeling_cohort = kept
+    print(f"\nModeling cohort: {len(modeling_cohort):,} admissions, {modeling_cohort['subject_id'].nunique():,} subjects")
+    print(f"  AKI (is_aki==1): {(modeling_cohort['is_aki']==1).sum():,}")
+    print(f"  No AKI (is_aki==0): {(modeling_cohort['is_aki']==0).sum():,}")
+
     # ── Summary ───────────────────────────────────────────────────────────────────
-    print(f"\nFinal cohort: {len(final_cohort):,} admissions, {final_cohort['subject_id'].nunique():,} subjects")
+    print(f"\nPre-dedup cohort: {len(final_cohort):,} admissions, {final_cohort['subject_id'].nunique():,} subjects")
 
     # ── Write output ──────────────────────────────────────────────────────────────
     audit = pd.concat(records, ignore_index=True)
