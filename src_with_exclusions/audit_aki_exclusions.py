@@ -50,8 +50,8 @@ def extract_kidney_flags(df_diagnosis):
 
 
 def record_removed(step: int, filter_name: str, removed: pd.DataFrame) -> pd.DataFrame:
-    """Return a tidy DataFrame of removed (hadm_id, subject_id) rows."""
-    cols = [c for c in ["hadm_id", "subject_id"] if c in removed.columns]
+    """Return a tidy DataFrame of removed (hadm_id, subject_id, version) rows."""
+    cols = [c for c in ["version", "hadm_id", "subject_id"] if c in removed.columns]
     out = removed[cols].drop_duplicates().copy()
     out.insert(0, "step", step)
     out.insert(1, "filter", filter_name)
@@ -140,7 +140,7 @@ def main():
     # ── Load features parquet (one row per subject, already deduplicated + labeled)
     feat = pd.read_parquet(
         args.features,
-        columns=["subject_id", "hadm_id", "cmb_ckd", "renal_impaired_at_adm", "incident_aki_label", "is_aki"],
+        columns=["subject_id", "hadm_id", "version", "cmb_ckd", "renal_impaired_at_adm", "incident_aki_label", "is_aki"],
         engine="pyarrow",
     )
     print(f"\nFeatures parquet: {len(feat):,} subjects (one row per subject, all labeled)")
@@ -179,6 +179,9 @@ def main():
     print(f"\nModeling cohort: {len(modeling_cohort):,} subjects")
     print(f"  AKI (label=1):    {(modeling_cohort['incident_aki_label']==1).sum():,}")
     print(f"  No AKI (label=0): {(modeling_cohort['incident_aki_label']==0).sum():,}")
+    for ver in ["mimic4", "mimic3"]:
+        mv = modeling_cohort[modeling_cohort["version"] == ver]
+        print(f"  {ver}: {len(mv):,} total  |  AKI={int((mv['incident_aki_label']==1).sum()):,}  controls={int((mv['incident_aki_label']==0).sum()):,}")
 
     # ── Summary ───────────────────────────────────────────────────────────────────
     print(f"\nPre-dedup cohort: {len(adults_flagged):,} admissions, {adults_flagged['subject_id'].nunique():,} subjects")
@@ -189,13 +192,25 @@ def main():
     print(f"\nAudit CSV written -> {args.out}")
     print(f"Total rows: {len(audit):,}  (one row per removed admission per step)")
 
-    # ── Per-step summary ──────────────────────────────────────────────────────────
+    # ── Per-step summary (combined + by version) ─────────────────────────────────
     summary = (
         audit.groupby(["step", "filter"])
         .agg(admissions_removed=("hadm_id", "nunique"), subjects_removed=("subject_id", "nunique"))
         .reset_index()
     )
-    print("\n" + summary.to_string(index=False))
+    print("\n=== COMBINED ===")
+    print(summary.to_string(index=False))
+
+    for ver in ["mimic4", "mimic3"]:
+        if "version" in audit.columns:
+            av = audit[audit["version"] == ver]
+            sv = (
+                av.groupby(["step", "filter"])
+                .agg(admissions_removed=("hadm_id", "nunique"), subjects_removed=("subject_id", "nunique"))
+                .reset_index()
+            )
+            print(f"\n=== {ver.upper()} ===")
+            print(sv.to_string(index=False))
 
 
 if __name__ == "__main__":
