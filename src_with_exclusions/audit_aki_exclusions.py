@@ -137,54 +137,51 @@ def main():
     adults_flagged = adults_no_primary.merge(hadm_flags, on=["subject_id", "hadm_id"], how="inner")
     print(f"Step {step} (no kidney flag):    removed {len(records[-1]):,} admissions, {records[-1]['subject_id'].nunique():,} subjects")
 
-    # ── Step 4: cmb_ckd == 1 (from features parquet) ────────────────────────────
-    step += 1
+    # ── Load features parquet (one row per subject, already deduplicated + labeled)
     feat = pd.read_parquet(
         args.features,
-        columns=["subject_id", "hadm_id", "cmb_ckd", "renal_impaired_at_adm"],
+        columns=["subject_id", "hadm_id", "cmb_ckd", "renal_impaired_at_adm", "incident_aki_label", "is_aki"],
         engine="pyarrow",
     )
-    cmb_ckd_sids = set(feat.loc[feat["cmb_ckd"] == 1, "subject_id"])
-    removed_cmb = adults_flagged[adults_flagged["subject_id"].isin(cmb_ckd_sids)]
+    print(f"\nFeatures parquet: {len(feat):,} subjects (one row per subject, all labeled)")
+
+    # ── Step 4: dedup + labeling (collapse to features) ─────────────────────────
+    # The pipeline runs incident_aki_target.py + dedup to produce features_all.parquet:
+    #   one row per subject, incident_aki_label in {0,1} (NaN rows excluded already).
+    # We record admissions in adults_flagged that are NOT the kept row in features.
+    step += 1
+    kept_hadms = set(zip(feat["subject_id"], feat["hadm_id"]))
+    removed_dedup = adults_flagged[
+        ~adults_flagged.apply(lambda r: (r["subject_id"], r["hadm_id"]) in kept_hadms, axis=1)
+    ]
+    records.append(record_removed(step, "dedup + label=NaN: collapsed to one labeled row per subject", removed_dedup))
+    after_dedup = adults_flagged[
+        adults_flagged.apply(lambda r: (r["subject_id"], r["hadm_id"]) in kept_hadms, axis=1)
+    ]
+    print(f"Step {step} (dedup+label):      removed {len(records[-1]):,} admissions, {records[-1]['subject_id'].nunique():,} subjects")
+    print(f"  Remaining: {len(after_dedup):,} subjects")
+
+    # ── Step 5: cmb_ckd == 1 (excluded at modeling time from features) ───────────
+    step += 1
+    after_dedup = after_dedup.merge(feat[["subject_id", "hadm_id", "cmb_ckd", "renal_impaired_at_adm", "incident_aki_label"]], on=["subject_id", "hadm_id"], how="left")
+    removed_cmb = after_dedup[after_dedup["cmb_ckd"] == 1]
     records.append(record_removed(step, "cmb_ckd == 1 (concurrent AKI+CKD)", removed_cmb))
-    after_cmb = adults_flagged[~adults_flagged["subject_id"].isin(cmb_ckd_sids)]
+    after_cmb = after_dedup[after_dedup["cmb_ckd"] != 1]
     print(f"Step {step} (cmb_ckd):           removed {len(records[-1]):,} admissions, {records[-1]['subject_id'].nunique():,} subjects")
 
-    # ── Step 5: renal_impaired_at_adm == 1 (from features parquet) ──────────────
+    # ── Step 6: renal_impaired_at_adm == 1 (excluded at modeling time) ───────────
     step += 1
-    renal_imp_sids = set(feat.loc[feat["renal_impaired_at_adm"] == 1, "subject_id"])
-    removed_renal = after_cmb[after_cmb["subject_id"].isin(renal_imp_sids)]
+    removed_renal = after_cmb[after_cmb["renal_impaired_at_adm"] == 1]
     records.append(record_removed(step, "renal_impaired_at_adm == 1 (prior CKD history)", removed_renal))
-    final_cohort = after_cmb[~after_cmb["subject_id"].isin(renal_imp_sids)]
+    modeling_cohort = after_cmb[after_cmb["renal_impaired_at_adm"] != 1]
     print(f"Step {step} (renal_impaired):    removed {len(records[-1]):,} admissions, {records[-1]['subject_id'].nunique():,} subjects")
 
-    # ── Step 6: deduplication — first AKI, last non-AKI per subject ─────────────
-    step += 1
-    final_cohort = final_cohort.copy()
-    final_cohort["admittime"] = pd.to_datetime(final_cohort["admittime"], errors="coerce")
-
-    def pick_kept(g):
-        aki = g[g["is_aki"] == 1].sort_values("admittime")
-        if not aki.empty:
-            return aki.iloc[:1]   # subject had AKI: keep first AKI admission only
-        return g.sort_values("admittime").iloc[-1:]  # no AKI: keep last admission
-
-    kept = (
-        final_cohort.groupby("subject_id", group_keys=False)
-        .apply(pick_kept)
-        .reset_index(drop=True)
-    )
-    removed_dedup = final_cohort[~final_cohort.index.isin(kept.index)]
-    records.append(record_removed(step, "dedup: not first AKI or last non-AKI per subject", removed_dedup))
-    print(f"Step {step} (dedup):             removed {len(records[-1]):,} admissions, {records[-1]['subject_id'].nunique():,} subjects")
-
-    modeling_cohort = kept
-    print(f"\nModeling cohort: {len(modeling_cohort):,} admissions, {modeling_cohort['subject_id'].nunique():,} subjects")
-    print(f"  AKI (is_aki==1): {(modeling_cohort['is_aki']==1).sum():,}")
-    print(f"  No AKI (is_aki==0): {(modeling_cohort['is_aki']==0).sum():,}")
+    print(f"\nModeling cohort: {len(modeling_cohort):,} subjects")
+    print(f"  AKI (label=1):    {(modeling_cohort['incident_aki_label']==1).sum():,}")
+    print(f"  No AKI (label=0): {(modeling_cohort['incident_aki_label']==0).sum():,}")
 
     # ── Summary ───────────────────────────────────────────────────────────────────
-    print(f"\nPre-dedup cohort: {len(final_cohort):,} admissions, {final_cohort['subject_id'].nunique():,} subjects")
+    print(f"\nPre-dedup cohort: {len(adults_flagged):,} admissions, {adults_flagged['subject_id'].nunique():,} subjects")
 
     # ── Write output ──────────────────────────────────────────────────────────────
     audit = pd.concat(records, ignore_index=True)
