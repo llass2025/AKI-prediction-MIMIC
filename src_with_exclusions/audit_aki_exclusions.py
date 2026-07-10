@@ -164,15 +164,15 @@ def main():
     final_cohort["admittime"] = pd.to_datetime(final_cohort["admittime"], errors="coerce")
 
     def pick_kept(g):
-        g = g.drop(columns="subject_id")
-        aki = g[g["is_aki"] == 1].sort_values("admittime").iloc[:1]
-        non_aki = g[g["is_aki"] == 0].sort_values("admittime").iloc[-1:]
-        return pd.concat([aki, non_aki])
+        aki = g[g["is_aki"] == 1].sort_values("admittime")
+        if not aki.empty:
+            return aki.iloc[:1]   # subject had AKI: keep first AKI admission only
+        return g.sort_values("admittime").iloc[-1:]  # no AKI: keep last admission
 
     kept = (
         final_cohort.groupby("subject_id", group_keys=False)
-        .apply(pick_kept, include_groups=False)
-        .reset_index()
+        .apply(pick_kept)
+        .reset_index(drop=True)
     )
     removed_dedup = final_cohort[~final_cohort.index.isin(kept.index)]
     records.append(record_removed(step, "dedup: not first AKI or last non-AKI per subject", removed_dedup))
