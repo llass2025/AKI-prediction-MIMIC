@@ -19,17 +19,34 @@ Usage:
 """
 
 import argparse
-import sys
 import pandas as pd
 import numpy as np
 
-# Reuse helpers from the pipeline
-sys.path.insert(0, ".")
-from src_with_exclusions.src.compute_target_admissions import (
-    get_age_row_ts,
-    extract_kidney_flags,
-    extract_autocar_flags,
-)
+AKI_PREFIXES = ["584", "3995", "5498", "N17"]
+CKD_PREFIXES = ["5851","5852","5853","5854","5855","5859","N181","N182","N183","N184","N185","N189"]
+
+def startswith_any(code, prefixes):
+    return any(str(code).startswith(p) for p in prefixes)
+
+def get_age_row_ts(row):
+    if row["version"] == "mimic3":
+        admittime = row["admittime"].to_pydatetime()
+        dob = row["dob"].to_pydatetime()
+        age = (admittime - dob).days / 365
+        return 90 if age > 150 else age
+    elif row["version"] == "mimic4":
+        return row["anchor_age"]
+    return np.nan
+
+def extract_kidney_flags(df_diagnosis):
+    df = df_diagnosis.copy()
+    df["icd_code"] = df["icd_code"].astype(str)
+    df["is_aki"] = df["icd_code"].apply(lambda x: int(startswith_any(x, AKI_PREFIXES)))
+    df["is_ckd"] = df["icd_code"].apply(lambda x: int(startswith_any(x, CKD_PREFIXES)))
+    if "seq_num" not in df.columns:
+        df["seq_num"] = np.nan
+    df["seq_num"] = pd.to_numeric(df["seq_num"], errors="coerce")
+    return df.groupby(["subject_id", "hadm_id", "seq_num"])[["is_aki", "is_ckd"]].max().reset_index()
 
 
 def record_removed(step: int, filter_name: str, removed: pd.DataFrame) -> pd.DataFrame:
@@ -125,7 +142,7 @@ def main():
     feat = pd.read_parquet(
         args.features,
         columns=["subject_id", "hadm_id", "cmb_ckd", "renal_impaired_at_adm"],
-        engine="fastparquet",
+        engine="pyarrow",
     )
     cmb_ckd_sids = set(feat.loc[feat["cmb_ckd"] == 1, "subject_id"])
     removed_cmb = adults_flagged[adults_flagged["subject_id"].isin(cmb_ckd_sids)]
