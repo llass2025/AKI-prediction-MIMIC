@@ -289,6 +289,7 @@ def main():
     # Model prediction CSV paths
     models = {
         "logreg":   os.path.join(args.artifacts_dir, "logreg_aki",    "logreg.predictions.csv"),
+        "elasticnet": os.path.join(args.artifacts_dir, "elasticnet_aki", "elasticnet.predictions.csv"),
         "rf":       os.path.join(args.artifacts_dir, "rf_aki",        "rf.predictions.csv"),
         "xgb":      os.path.join(args.artifacts_dir, "xgb_aki",       "xgb.predictions.csv"),
         "dnn":      os.path.join(args.artifacts_dir, "dnn_aki",       "dnn.predictions.csv"),

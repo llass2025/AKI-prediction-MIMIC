@@ -25,19 +25,55 @@ from captum.attr import IntegratedGradients
 
 # ---------------- metrics ---------------- #
 
-def concordance_index(event_times, predicted_scores, event_observed):
-    n = 0; n_conc = 0.0
-    for i in range(len(event_times)):
-        for j in range(i + 1, len(event_times)):
-            if event_observed[i] == 1 or event_observed[j] == 1:
-                ti, tj = event_times[i], event_times[j]
-                si, sj = predicted_scores[i], predicted_scores[j]
-                if ti != tj:
-                    n += 1
-                    if (ti < tj and si > sj) or (tj < ti and sj > si):
-                        n_conc += 1
-                    elif si == sj: n_conc += 0.5
-    return n_conc / n if n > 0 else np.nan
+def concordance_index(event_times, predicted_scores, event_observed, chunk_size=2000):
+    """
+    Harrell's concordance index (vectorized, memory-chunked).
+
+    A pair (i, j) is admissible only when the relative ordering of true
+    failure times is actually knowable:
+      - both had events (admissible whenever times differ), or
+      - exactly one had an event, and the *other's* observed (censoring)
+        time is >= that event's time -- i.e. censoring happened at or
+        after the event, so we know the censored subject failed no
+        earlier than the event.
+    A pair with one early-censored subject and one much-later event is
+    NOT admissible, since we cannot know whether the censored subject
+    would have failed before or after that event. (Previous versions of
+    this function admitted such pairs whenever either subject had an
+    event, which is not Harrell's definition and produces a severe
+    downward bias in cohorts with heavy early/short-follow-up censoring.)
+    """
+    t = np.asarray(event_times, dtype=float)
+    s = np.asarray(predicted_scores, dtype=float)
+    e = np.asarray(event_observed).astype(bool)
+    n = len(t)
+    if n < 2:
+        return np.nan
+
+    n_conc = 0.0
+    n_adm = 0
+    for start in range(0, n, chunk_size):
+        end = min(start + chunk_size, n)
+        ti = t[start:end, None]; si = s[start:end, None]; ei = e[start:end, None]
+        tj = t[None, :];         sj = s[None, :];         ej = e[None, :]
+        upper = np.arange(start, end)[:, None] < np.arange(n)[None, :]
+
+        both_event = ei & ej
+        one_event = ei ^ ej
+        i_only = ei & ~ej
+        j_only = ej & ~ei
+
+        adm_ee = both_event & (ti != tj)
+        adm_ec = one_event & ((i_only & (tj >= ti)) | (j_only & (ti >= tj)))
+        admissible = (adm_ee | adm_ec) & upper
+
+        conc = admissible & (((ti < tj) & (si > sj)) | ((tj < ti) & (sj > si)))
+        tie = admissible & (si == sj)
+
+        n_adm += int(admissible.sum())
+        n_conc += float(conc.sum()) + 0.5 * float(tie.sum())
+
+    return n_conc / n_adm if n_adm > 0 else np.nan
 
 def td_binary_metrics_at_time(time, event, score, t_cut: float) -> dict:
     time = np.asarray(time, float); event = np.asarray(event, int); score = np.asarray(score, float)
