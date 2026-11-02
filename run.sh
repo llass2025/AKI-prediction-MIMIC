@@ -9,12 +9,22 @@
 #   --skip-imputation  skip imputation
 #   --skip-training    skip model training
 #   --device=cpu|cuda  device for deep models (default: auto-detect)
+#   --concordance      OPT-IN: run the KDIGO-vs-ICD concordance diagnostics after the
+#                      pipeline (reads raw MIMIC-IV from $MIMIC_IV_DIR, default
+#                      ../data/mimic-iv-3.1; reuses a cached target_admissions.parquet;
+#                      writes only to reports/aki_label_concordance/). Combine with the
+#                      --skip-* flags to run it alone, e.g.
+#                      bash run.sh --skip-install --skip-compile --skip-targets \
+#                        --skip-features --skip-imputation --skip-training --concordance
+#   --confirmed-target OPT-IN (implies --concordance): also write target_kdigo_confirmed.parquet
+#                      (+ _light) = the incident target restricted to KDIGO-confirmed in-hospital
+#                      onset; target.parquet is left untouched. Reports the ICD/KDIGO overlap.
 
 set -euo pipefail
 cd "$(dirname "$0")"
 
 SKIP_INSTALL=0; SKIP_COMPILE=0; SKIP_TARGETS=0
-SKIP_FEATURES=0; SKIP_IMPUTATION=0; SKIP_TRAINING=0; DEVICE=""
+SKIP_FEATURES=0; SKIP_IMPUTATION=0; SKIP_TRAINING=0; DEVICE=""; RUN_CONCORDANCE=0; CONFIRMED_ARGS=""
 
 for arg in "$@"; do
   case $arg in
@@ -24,6 +34,8 @@ for arg in "$@"; do
     --skip-features)   SKIP_FEATURES=1 ;;
     --skip-imputation) SKIP_IMPUTATION=1 ;;
     --skip-training)   SKIP_TRAINING=1 ;;
+    --concordance)     RUN_CONCORDANCE=1 ;;
+    --confirmed-target) RUN_CONCORDANCE=1; CONFIRMED_ARGS="--confirmed-target" ;;
     --device=*)        DEVICE="${arg#--device=}" ;;
     *) echo "Unknown flag: $arg"; exit 1 ;;
   esac
@@ -154,6 +166,16 @@ if [ "$SKIP_TRAINING" -eq 0 ]; then
     --out-prefix artifacts/dcn_aki/dcn
 else
   log "Skipping model training"
+fi
+
+# ── Step 6 (opt-in): KDIGO-vs-ICD label concordance diagnostics ───────────────
+if [ "$RUN_CONCORDANCE" -eq 1 ]; then
+  log "AKI label concordance diagnostics -> reports/aki_label_concordance/"
+  python3 -m src.concordance \
+    --mimic-dir "${MIMIC_IV_DIR:-../data/mimic-iv-3.1}" \
+    --pipeline-target target_admissions.parquet \
+    --modeling-target target.parquet \
+    ${CONFIRMED_ARGS}
 fi
 
 log "Pipeline complete."

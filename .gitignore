@@ -21,3 +21,7 @@ data.pkl
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Concordance diagnostics: the cache holds row-level creatinine (never commit); the aggregate reports are tracked
+concordance_cache/
+!reports/aki_label_concordance/*.csv
